@@ -70,6 +70,7 @@
 #include "scooby/tunnel_rooms.h"
 #include "scooby/princess_rooms.h"
 #include "scooby/vault_rooms.h"
+#include "scooby/wfr_rooms.h"
 #include "scooby/wizards_bedroom_rooms.h"
 #include "scooby/wizards_rooms.h"
 
@@ -237,6 +238,8 @@ static RoomClass *buildRoomClass(ScoobyEngine &engine, const Common::String &roo
 		return princess;
 	if (RoomClass *wizardsBedroom = createWizardsBedroomRoom(engine, room))
 		return wizardsBedroom;
+	if (RoomClass *wfr = createWizardsRuleRoom(engine, room))
+		return wfr;
 	// Showdown's chase (chase_rooms.cpp).
 	if (RoomClass *chase = createChaseRoom(engine, room))
 		return chase;
