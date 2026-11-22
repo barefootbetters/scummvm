@@ -21,7 +21,7 @@
 
 // Phantom of the Knight's wizard's bedroom and veranda (WP-081), the third of
 // the audit's group-8 (Upstairs) rooms. The addresses are Phantom's. The last
-// group-8 room, ROOM_P30_WFR (the Wizard's Rule Room), is its own packet (WP-082).
+// group-8 room, ROOM_P30_WFR (the Wizard's Rule Room), is its own packet (WP-083).
 
 #include "common/debug.h"
 

@@ -30,7 +30,7 @@ namespace Scooby {
  * Phantom's wizard's bedroom and veranda (WP-081), the third of the audit's
  * group-8 (Upstairs) rooms. The addresses are Phantom's; Showdown has neither
  * room. The last group-8 room, ROOM_P30_WFR (the Wizard's Rule Room, the game's
- * largest class), is its own packet (WP-082).
+ * largest class), is its own packet (WP-083).
  */
 
 /**
