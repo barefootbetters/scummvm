@@ -50,6 +50,21 @@ const ScoobyGameDescription gameDescriptions[] = {
 		},
 		kGen1
 	},
+	// Showdown in Ghost Town (Norwegian) - CD
+	{
+		{
+			"showdown",
+			nullptr,
+			AD_ENTRY3s("Scooby.exe", "2e06d1de95b854288f5fdb5cc05c3a8b", 1693471,
+				   "TGIFILE.ART", "ffdf0dfefca235966b0620649d4b27d8", 144852992,
+				   "object.ini", "42db419bd6be75a49552d9e9bdeed880", 25196),
+			Common::NB_NOR,
+			Common::kPlatformWindows,
+			ADGF_TESTING,
+			GUIO1(GUIO_NOMIDI)
+		},
+		kGen1
+	},
 	{
 		{
 			"phantomknight",
