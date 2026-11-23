@@ -27,7 +27,7 @@
 #include "terraglyph/office_rooms.h"
 #include "terraglyph/room.h"
 #include "terraglyph/room_script.h"
-#include "terraglyph/scooby.h"
+#include "terraglyph/terraglyph.h"
 #include "terraglyph/sound.h"
 
 namespace Terraglyph {

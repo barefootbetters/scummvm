@@ -21,7 +21,7 @@
 
 #include "terraglyph/metaengine.h"
 #include "terraglyph/detection.h"
-#include "terraglyph/scooby.h"
+#include "terraglyph/terraglyph.h"
 
 const char *TerraglyphMetaEngine::getName() const {
 	return "terraglyph";

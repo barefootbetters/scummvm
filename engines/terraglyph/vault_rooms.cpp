@@ -27,7 +27,7 @@
 #include "terraglyph/inventory.h"
 #include "terraglyph/room.h"
 #include "terraglyph/room_script.h"
-#include "terraglyph/scooby.h"
+#include "terraglyph/terraglyph.h"
 #include "terraglyph/sound.h"
 #include "terraglyph/vault_rooms.h"
 

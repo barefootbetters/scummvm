@@ -22,7 +22,7 @@
 #include "terraglyph/console.h"
 #include "terraglyph/art_archive.h"
 #include "terraglyph/inventory.h"
-#include "terraglyph/scooby.h"
+#include "terraglyph/terraglyph.h"
 #include "terraglyph/sound.h"
 
 namespace Terraglyph {

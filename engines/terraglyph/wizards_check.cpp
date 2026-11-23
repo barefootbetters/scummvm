@@ -30,7 +30,7 @@
 #include "terraglyph/inventory.h"
 #include "terraglyph/room.h"
 #include "terraglyph/room_class.h"
-#include "terraglyph/scooby.h"
+#include "terraglyph/terraglyph.h"
 #include "terraglyph/sound.h"
 #include "terraglyph/wizards_rooms.h"
 

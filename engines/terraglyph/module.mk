@@ -63,7 +63,7 @@ MODULE_OBJS = \
 	room_script.o \
 	room_setup.o \
 	saloon_rooms.o \
-	scooby.o \
+	terraglyph.o \
 	sheriff_rooms.o \
 	souvenir_check.o \
 	souvenir_rooms.o \
@@ -90,7 +90,7 @@ MODULE_OBJS = \
 	movie.o
 
 # This module can be built as a plugin
-ifeq ($(ENABLE_SCOOBY), DYNAMIC_PLUGIN)
+ifeq ($(ENABLE_TERRAGLYPH), DYNAMIC_PLUGIN)
 PLUGIN := 1
 endif
 

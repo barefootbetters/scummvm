@@ -24,7 +24,7 @@
 #include "common/debug.h"
 
 #include "terraglyph/detection.h"
-#include "terraglyph/scooby.h"
+#include "terraglyph/terraglyph.h"
 
 namespace Terraglyph {
 

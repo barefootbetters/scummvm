@@ -30,7 +30,7 @@
 #include "graphics/surface.h"
 #include "video/bink_decoder.h"
 
-#include "terraglyph/scooby.h"
+#include "terraglyph/terraglyph.h"
 #include "terraglyph/sound.h"
 
 namespace Terraglyph {

@@ -19,7 +19,7 @@
  *
  */
 
-#include "terraglyph/scooby.h"
+#include "terraglyph/terraglyph.h"
 #include "terraglyph/art_archive.h"
 #include "terraglyph/cel.h"
 #include "terraglyph/console.h"

@@ -31,7 +31,7 @@
 #include "terraglyph/maze_interior_rooms.h"
 #include "terraglyph/room.h"
 #include "terraglyph/room_class.h"
-#include "terraglyph/scooby.h"
+#include "terraglyph/terraglyph.h"
 #include "terraglyph/sound.h"
 
 namespace Terraglyph {

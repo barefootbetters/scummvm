@@ -30,7 +30,7 @@
 #include "terraglyph/detection.h"
 #include "terraglyph/inventory.h"
 #include "terraglyph/room.h"
-#include "terraglyph/scooby.h"
+#include "terraglyph/terraglyph.h"
 #include "terraglyph/sound.h"
 
 namespace Terraglyph {
