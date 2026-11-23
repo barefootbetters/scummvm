@@ -70,6 +70,7 @@
 #include "terraglyph/tunnel_rooms.h"
 #include "terraglyph/princess_rooms.h"
 #include "terraglyph/vault_rooms.h"
+#include "terraglyph/wizards_bedroom_rooms.h"
 #include "terraglyph/wizards_rooms.h"
 
 namespace Terraglyph {
@@ -234,6 +235,8 @@ static RoomClass *buildRoomClass(TerraglyphEngine &engine, const Common::String 
 		return wizards;
 	if (RoomClass *princess = createPrincessRoom(engine, room))
 		return princess;
+	if (RoomClass *wizardsBedroom = createWizardsBedroomRoom(engine, room))
+		return wizardsBedroom;
 	// Showdown's chase (chase_rooms.cpp).
 	if (RoomClass *chase = createChaseRoom(engine, room))
 		return chase;
