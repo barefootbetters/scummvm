@@ -363,6 +363,12 @@ void OSystem_Android::initBackend() {
 	// Also see declaration of support for feature kFeatureKbdMouseSpeed bellow
 	ConfMan.registerDefault("kbdmouse_speed", 2);
 	ConfMan.registerDefault("joystick_deadzone", 3);
+#ifdef USE_PNG
+	// The grid launcher suits a TV screen and a pointer better than the list.
+	// A user who switches to the list view keeps it (it's saved to the config file).
+	// The grid needs PNG support for its thumbnails, so a build without it keeps the list.
+	ConfMan.registerDefault("gui_launcher_chooser", "grid");
+#endif
 
 	// explicitly set this, since fullscreen cannot be changed from GUI
 	// and for Android it should be persisted (and ConfMan.hasKey("fullscreen") check should return true for it)

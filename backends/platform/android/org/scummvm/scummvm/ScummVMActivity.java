@@ -1239,6 +1239,7 @@ public class ScummVMActivity extends Activity {
 				intentData.getSchemeSpecificPart()
 			};
 		}
+		args = TestFeatures.beforeScummVMStart(this, _configScummvmFile, args);
 		_scummvm.setArgs(args);
 
 		Log.d(ScummVM.LOG_TAG, "Hover available: " + _hoverAvailable);
@@ -1284,6 +1285,17 @@ public class ScummVMActivity extends Activity {
 	}
 
 	@Override
+	public boolean dispatchKeyEvent(KeyEvent event) {
+		// Test builds watch for the gesture that opens their advanced mode;
+		// the release build's stub never matches.
+		if (TestFeatures.onKeyEvent(event)) {
+			TestFeatures.open(this, _scummvm != null ? _scummvm.getInstallingScummVMVersionInfo() : "");
+			return true;
+		}
+		return super.dispatchKeyEvent(event);
+	}
+
+	@Override
 	public void onStart() {
 //		Log.d(ScummVM.LOG_TAG, "onStart");
 
@@ -1297,18 +1309,22 @@ public class ScummVMActivity extends Activity {
 		super.onNewIntent(intent);
 
 		Uri intentData = intent.getData();
+		// A test build's advanced mode asks for a restart to apply a package change
+		boolean restartRequest = TestFeatures.isRestartRequest(intent);
 
-		// No specific game, we just continue
-		if (intentData == null) {
-			return;
+		if (!restartRequest) {
+			// No specific game, we just continue
+			if (intentData == null) {
+				return;
+			}
+
+			// Same game requested, we continue too
+			if (intentData.equals(getIntent().getData())) {
+				return;
+			}
+
+			setIntent(intent);
 		}
-
-		// Same game requested, we continue too
-		if (intentData.equals(getIntent().getData())) {
-			return;
-		}
-
-		setIntent(intent);
 
 		if (_events == null) {
 			finish();
@@ -1338,10 +1354,18 @@ public class ScummVMActivity extends Activity {
 
 		_finishing = false;
 
-		String[] args = new String[]{
-			"ScummVM",
-			intentData.getSchemeSpecificPart()
-		};
+		String[] args;
+		if (restartRequest) {
+			args = new String[]{
+				"ScummVM"
+			};
+		} else {
+			args = new String[]{
+				"ScummVM",
+				intentData.getSchemeSpecificPart()
+			};
+		}
+		args = TestFeatures.beforeScummVMStart(this, _configScummvmFile, args);
 		_scummvm.setArgs(args);
 
 		_scummvm_thread = new Thread(_scummvm, "ScummVM");

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Merged into the debug (test) build only. The release build has no advanced mode. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+	<!-- Lets PackagesActivity tell a real share target from the TV framework's stub -->
+	<queries>
+		<intent>
+			<action android:name="android.intent.action.SEND" />
+			<data android:mimeType="text/plain" />
+		</intent>
+	</queries>
+	<application>
+		<activity
+			android:name="org.scummvm.scummvm.advanced.PackagesActivity"
+			android:configChanges="orientation|keyboard|keyboardHidden|navigation|screenSize|smallestScreenSize|screenLayout"
+			android:exported="false"
+			android:theme="@android:style/Theme.DeviceDefault" />
+	</application>
+</manifest>

@@ -13,6 +13,34 @@ tasks.withType(JavaCompile).configureEach {
 
 //gradle.startParameter.showStacktrace = ShowStacktrace.ALWAYS_FULL
 
+// App identity, injected at build time. A packaged app can set these Gradle
+// properties in the build environment (for example in the user-level
+// ~/.gradle/gradle.properties) to build under its own id, name, icon and TV
+// banner without changing this file. Unset (or empty), the build is plain
+// ScummVM.
+//   tvAppId     - the applicationId (the debug build adds ".debug")
+//   tvAppLabel  - the launcher label (the debug build adds " (debug)")
+//   tvAppResDir - a resource directory providing @mipmap/tvapp_icon and
+//                 @drawable/tvapp_banner
+//   tvAppVersionCode, tvAppVersionName - the packaged app's own release
+//                 numbering. Each update must raise the code, and a store
+//                 never accepts the same code twice, so a packaged app can't
+//                 share ScummVM's numbering below.
+def tvAppId = findProperty('tvAppId') ?: null
+def tvAppLabel = findProperty('tvAppLabel') ?: null
+def tvAppResDir = findProperty('tvAppResDir') ?: null
+def tvAppVersionCode = findProperty('tvAppVersionCode') ?: null
+def tvAppVersionName = findProperty('tvAppVersionName') ?: null
+
+def identityPlaceholders = { String nameSuffix, String labelSuffix ->
+    [
+        nameSuffix: nameSuffix,
+        appLabel  : tvAppLabel ? (tvAppLabel + labelSuffix) : ('@string/app_name' + nameSuffix),
+        appIcon   : tvAppResDir ? '@mipmap/tvapp_icon' : '@mipmap/scummvm',
+        appBanner : tvAppResDir ? '@drawable/tvapp_banner' : '@drawable/leanback_icon',
+    ]
+}
+
 android {
     namespace = "org.scummvm.scummvm"
 
@@ -24,7 +52,7 @@ android {
     enableKotlin = false
 
     defaultConfig {
-        applicationId "org.scummvm.scummvm"
+        applicationId tvAppId ?: "org.scummvm.scummvm"
 
         minSdkVersion 16
 
@@ -35,6 +63,12 @@ android {
 
         versionName "2026.4.1"
         versionCode 26041000
+        if (tvAppVersionName) {
+            versionName tvAppVersionName.toString()
+        }
+        if (tvAppVersionCode) {
+            versionCode Integer.parseInt(tvAppVersionCode.toString())
+        }
         // versioncode must be incremented for each market upload
         // maximum versioncode allowed by Play Store is: 2100000000
         // After 2.9.1.1 release the versioncode numbering scheme changed to reflect the post-2026 naming convention for ScummVM versions.
@@ -94,11 +128,11 @@ android {
     buildTypes {
         debug{
             applicationIdSuffix ".debug"
-            manifestPlaceholders = [nameSuffix:"_debug"]
+            manifestPlaceholders = identityPlaceholders("_debug", " (debug)")
             debuggable true
         }
         release {
-            manifestPlaceholders = [nameSuffix:""]
+            manifestPlaceholders = identityPlaceholders("", "")
             debuggable false
             // Enables code shrinking, obfuscation, and optimization for only
             // your project's release build type.
@@ -116,9 +150,25 @@ android {
                 assets.srcDirs 'mainAssets/src/main/assets/'
             }
             java.srcDirs srcProperties['srcdir'] + '/backends/platform/android/'
+            // The test-build features live in their own folders, compiled
+            // per build type below, never in main.
+            java.exclude 'advanced/**', 'advanced-stub/**'
             jniLibs.srcDirs 'lib/'
             res.srcDirs srcProperties['srcdir'] + '/dists/android/res/'
+            if (tvAppResDir) {
+                res.srcDirs tvAppResDir
+            }
             manifest.srcFile srcProperties['srcdir'] + '/dists/android/AndroidManifest.xml'
+        }
+        // The hidden advanced mode (authorized test packages) is in the debug
+        // (test) build only. The release build compiles a stub with the same
+        // TestFeatures class, so it holds no advanced-mode code at all.
+        debug {
+            java.srcDirs srcProperties['srcdir'] + '/backends/platform/android/advanced/'
+            manifest.srcFile srcProperties['srcdir'] + '/backends/platform/android/advanced/AndroidManifest.xml'
+        }
+        release {
+            java.srcDirs srcProperties['srcdir'] + '/backends/platform/android/advanced-stub/'
         }
     }
     lint {
