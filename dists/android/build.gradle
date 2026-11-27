@@ -13,6 +13,28 @@ tasks.withType(JavaCompile).configureEach {
 
 //gradle.startParameter.showStacktrace = ShowStacktrace.ALWAYS_FULL
 
+// App identity, injected at build time. A packaged app can set these Gradle
+// properties in the build environment (for example in the user-level
+// ~/.gradle/gradle.properties) to build under its own id, name, icon and TV
+// banner without changing this file. Unset (or empty), the build is plain
+// ScummVM.
+//   tvAppId     - the applicationId (the debug build adds ".debug")
+//   tvAppLabel  - the launcher label (the debug build adds " (debug)")
+//   tvAppResDir - a resource directory providing @mipmap/tvapp_icon and
+//                 @drawable/tvapp_banner
+def tvAppId = findProperty('tvAppId') ?: null
+def tvAppLabel = findProperty('tvAppLabel') ?: null
+def tvAppResDir = findProperty('tvAppResDir') ?: null
+
+def identityPlaceholders = { String nameSuffix, String labelSuffix ->
+    [
+        nameSuffix: nameSuffix,
+        appLabel  : tvAppLabel ? (tvAppLabel + labelSuffix) : ('@string/app_name' + nameSuffix),
+        appIcon   : tvAppResDir ? '@mipmap/tvapp_icon' : '@mipmap/scummvm',
+        appBanner : tvAppResDir ? '@drawable/tvapp_banner' : '@drawable/leanback_icon',
+    ]
+}
+
 android {
     namespace = "org.scummvm.scummvm"
 
@@ -24,7 +46,7 @@ android {
     enableKotlin = false
 
     defaultConfig {
-        applicationId "org.scummvm.scummvm"
+        applicationId tvAppId ?: "org.scummvm.scummvm"
 
         minSdkVersion 16
 
@@ -94,11 +116,11 @@ android {
     buildTypes {
         debug{
             applicationIdSuffix ".debug"
-            manifestPlaceholders = [nameSuffix:"_debug"]
+            manifestPlaceholders = identityPlaceholders("_debug", " (debug)")
             debuggable true
         }
         release {
-            manifestPlaceholders = [nameSuffix:""]
+            manifestPlaceholders = identityPlaceholders("", "")
             debuggable false
             // Enables code shrinking, obfuscation, and optimization for only
             // your project's release build type.
@@ -118,6 +140,9 @@ android {
             java.srcDirs srcProperties['srcdir'] + '/backends/platform/android/'
             jniLibs.srcDirs 'lib/'
             res.srcDirs srcProperties['srcdir'] + '/dists/android/res/'
+            if (tvAppResDir) {
+                res.srcDirs tvAppResDir
+            }
             manifest.srcFile srcProperties['srcdir'] + '/dists/android/AndroidManifest.xml'
         }
     }
