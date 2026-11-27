@@ -138,12 +138,25 @@ android {
                 assets.srcDirs 'mainAssets/src/main/assets/'
             }
             java.srcDirs srcProperties['srcdir'] + '/backends/platform/android/'
+            // The test-build features live in their own folders, compiled
+            // per build type below, never in main.
+            java.exclude 'advanced/**', 'advanced-stub/**'
             jniLibs.srcDirs 'lib/'
             res.srcDirs srcProperties['srcdir'] + '/dists/android/res/'
             if (tvAppResDir) {
                 res.srcDirs tvAppResDir
             }
             manifest.srcFile srcProperties['srcdir'] + '/dists/android/AndroidManifest.xml'
+        }
+        // The hidden advanced mode (authorized test packages) is in the debug
+        // (test) build only. The release build compiles a stub with the same
+        // TestFeatures class, so it holds no advanced-mode code at all.
+        debug {
+            java.srcDirs srcProperties['srcdir'] + '/backends/platform/android/advanced/'
+            manifest.srcFile srcProperties['srcdir'] + '/backends/platform/android/advanced/AndroidManifest.xml'
+        }
+        release {
+            java.srcDirs srcProperties['srcdir'] + '/backends/platform/android/advanced-stub/'
         }
     }
     lint {
