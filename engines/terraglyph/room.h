@@ -242,6 +242,12 @@ public:
 	public:
 		virtual ~Actor() {}
 		virtual void actorUpdate(uint sprite) = 0;
+		/**
+		 * Whether the sprite's player steps this tick (its vtable +0x08). A
+		 * class whose +0x08 is gated, as Knights of the Snack Table's knights
+		 * and mugs are while the room pauses, returns false to hold it.
+		 */
+		virtual bool actorPlays(uint sprite) { return true; }
 	};
 	/**
 	 * Give @p sprite an update. With any actor in the room, its tick walks
