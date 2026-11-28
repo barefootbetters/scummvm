@@ -137,7 +137,9 @@ void DrawbridgeRoom::setFlagState(uint i, int state) {
 		const int colour = (state - 5) / 2 + 1;
 		const bool raise = (state & 1) != 0;
 		room.startAnim(f.sprite, Common::String::format("ANIM_P01_DRAWBRIDGE_P%iF%i_RISE", f.number, colour), raise ? 3 : 4, -1, 3);
-		f.next = raise ? colour : state + 1;
+		// Lowering colour 4 (12) wraps round to raising colour 1 (5); 13 is
+		// no state, and a flag sent there would stay down, deaf to clicks.
+		f.next = raise ? colour : (state == 12 ? 5 : state + 1);
 	}
 }
 
