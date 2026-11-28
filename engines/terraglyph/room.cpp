@@ -198,7 +198,8 @@ void Room::walkTick(uint index, bool &changed) {
 		walkTick(cur, changed);
 		cur = next;
 	}
-	changed = tickPlayer(_sprites[index]) || changed;
+	if (!_sprites[index].actor || _sprites[index].actor->actorPlays(index))
+		changed = tickPlayer(_sprites[index]) || changed;
 	if (_sprites[index].actor)
 		_sprites[index].actor->actorUpdate(index);
 	while (cur >= 0) {
