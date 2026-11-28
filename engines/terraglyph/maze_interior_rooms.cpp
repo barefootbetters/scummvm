@@ -187,6 +187,9 @@ const char *FountainCloseupRoom::kEats = "Fountain_Closeup.Piranha_Eats";
 const char *FountainCloseupRoom::kPiranhaIdle = "ANIM_PIRANHAIDLE";
 const char *FountainCloseupRoom::kPiranhaFull = "ANIM_PIRANHAFULL";
 const char *FountainCloseupRoom::kEatStart = "ANIM_PIRANHALUNGE_EAT_START";
+const char *FountainCloseupRoom::kEatFinish = "ANIM_PIRANHALUNGE_EAT_FINISH";
+const char *FountainCloseupRoom::kLungeAttack = "ANIM_PIRANHALUNGE_ATTACK";
+const char *FountainCloseupRoom::kCenter = "ROOM_P23_Maze_Center";
 
 int FountainCloseupRoom::findSprite(const Common::String &object) const {
 	const Room &room = *_engine.getRoom();
@@ -197,20 +200,25 @@ int FountainCloseupRoom::findSprite(const Common::String &object) const {
 }
 
 void FountainCloseupRoom::reset() {
-	// 0x4297A0, after the base reset.
-	_fed = false;
-	_grabbed = false;
+	// 0x4297A0, after the base reset: a lunge pending, the cycle from its first
+	// line, nothing under way.
+	_lunge = true;
 	_clickCycle = 0;
+	_grabbing = false;
+	_fed = false;
 }
 
 void FountainCloseupRoom::claimPlacement(const Common::String &object, Room::Claim &claim) {
-	// 0x429CC0: the piranha a looping sprite (full when the burger is held, idle
-	// otherwise); the tokens a requires object answering the burger until taken;
-	// the way back to the centre an exit; Shaggy's grab a hidden sprite.
+	// 0x429CC0. The piranha a requires object (0x402D90: requiredanim=, the
+	// burger) under layer 0 at depth -1, hit by its step polygon; its sequence
+	// is set at entry. The tokens a requires object answering the burger at
+	// depth -100 until taken. The way back to the centre an exit at depth 100.
+	// Shaggy's grab a sprite under the second layer (game +0x5C; none here, so
+	// the root) at depth 100, hidden and stopped.
 	if (object == "OBJ_PIRANHA") {
-		claim.build = Room::Claim::kSprite;
+		claim.build = Room::Claim::kRequires;
+		claim.layer = 0;
 		claim.depth = -1;
-		claim.anim = used(_engine, "OBJ_INV_BURGER") ? kPiranhaFull : kPiranhaIdle;
 	} else if (object == "OBJ_INV_TOKENS") {
 		if (!_engine.getInventory()->hasItem("OBJ_INV_TOKENS")) {
 			claim.build = Room::Claim::kRequires;
@@ -224,57 +232,121 @@ void FountainCloseupRoom::claimPlacement(const Common::String &object, Room::Cla
 		claim.depth = 100;
 	} else if (object == "OBJ_SHAGGY_P44_GRAB_TOKENS") {
 		claim.build = Room::Claim::kSprite;
+		claim.layer = 1;
 		claim.depth = 100;
 		claim.hidden = true;
 	}
 }
 
 void FountainCloseupRoom::enter(const Common::String &from) {
-	// 0x4297D0, after the base entry: the water ripples.
-	_engine.getSound()->play(kWater);
-	_fed = false;
+	// 0x4297D0, after the base entry: the water. The sprites the claim built;
+	// the piranha full (looping) once the burger has been used, else its idle
+	// played once with its swim (0x429CC0); the grab stopped on its first step.
+	Room &room = *_engine.getRoom();
 	_piranha = findSprite("OBJ_PIRANHA");
-	debugC(1, kDebugScript, "fountain: from %s", from.c_str());
+	_tokens = findSprite("OBJ_INV_TOKENS");
+	_grab = findSprite("OBJ_SHAGGY_P44_GRAB_TOKENS");
+	if (_piranha >= 0) {
+		if (used(_engine, "OBJ_INV_BURGER")) {
+			room.startAnim(_piranha, kPiranhaFull, 1, -1, 3);
+		} else {
+			room.startAnim(_piranha, kPiranhaIdle, 3, -1, 3);
+			_engine.getSound()->play(kSwimLoop);
+		}
+	}
+	if (_grab >= 0)
+		room.setPlayer(_grab, 0, -1, 3);
+	_engine.getSound()->play(kWater);
+	debugC(1, kDebugScript, "fountain: from %s, lunge %s", from.c_str(), _lunge ? "pending" : "not pending");
 }
 
 void FountainCloseupRoom::roomLeft() {
-	// 0x42A040, after the base leave: the grabbed tokens stay in the toolbar.
-	if (_grabbed && !_engine.getInventory()->hasItem("OBJ_INV_TOKENS"))
+	// 0x42A040, after the base leave: left during Shaggy's grab, the tokens are
+	// his anyway.
+	if (_grabbing && !_engine.getInventory()->hasItem("OBJ_INV_TOKENS"))
 		_engine.getInventory()->addItem("OBJ_INV_TOKENS", "ANIM_TOOLBARTOKENS", "ANIM_CURSORTOKENS");
 }
 
 void FountainCloseupRoom::tick() {
-	// 0x429800, after the base tick: fed the burger, the piranha lunges and eats;
-	// then Shaggy grabs the tokens into the toolbar and the way back opens.
-	RoomScript &script = *_engine.getScript();
-	if (!_fed || _grabbed)
-		return;
-	Character *shaggy = script.getCharacter("SHAGGY");
-	if (shaggy && shaggy->getState() == Character::kStateIdle && !script.isScenePlaying()) {
-		_grabbed = true;
-		if (!_engine.getInventory()->hasItem("OBJ_INV_TOKENS"))
-			_engine.getInventory()->addItem("OBJ_INV_TOKENS", "ANIM_TOOLBARTOKENS", "ANIM_CURSORTOKENS");
-		_engine.getSound()->play(kGrabTokens);
-		debugC(1, kDebugScript, "fountain: Shaggy grabs the tokens");
+	// 0x429800, after the base tick.
+	Room &room = *_engine.getRoom();
+	Sound &sound = *_engine.getSound();
+	// The piranha's sequence over (shown, stopped):
+	if (_piranha >= 0 && !room.isHidden(_piranha) && room.getMode(_piranha) == 0) {
+		const Common::String &anim = room.getAnim(_piranha);
+		if (_lunge) {
+			// A lunge pending: it lunges at the gang.
+			_lunge = false;
+			room.startAnim(_piranha, kLungeAttack, 3, -1, 3);
+			sound.play(kLunge);
+			debugC(1, kDebugScript, "fountain: the piranha lunges");
+		} else if (anim == kEatStart) {
+			// It has the burger: it goes under, the tokens with it, and Shaggy
+			// grabs them.
+			room.setHidden(_piranha, true);
+			if (_grab >= 0) {
+				room.setHidden(_grab, false);
+				room.setPlayer(_grab, 3, -1, 3);
+			}
+			if (_tokens >= 0)
+				room.setHidden(_tokens, true);
+			_grabbing = true;
+			sound.play(kGrabTokens);
+			debugC(1, kDebugScript, "fountain: Shaggy grabs the tokens");
+		} else {
+			// Its idle again with its swim; after the eat, full and looping.
+			if (anim == kEatFinish)
+				room.startAnim(_piranha, kPiranhaFull, 1, -1, 3);
+			else
+				room.startAnim(_piranha, kPiranhaIdle, 3, -1, 3);
+			sound.play(kSwimLoop);
+		}
+	}
+	// Shaggy's grab over (shown, stopped): the tokens into the toolbar, the
+	// piranha back to finish eating, and the gang back to the centre with
+	// Fountain.250F_ (the exit 0x404820 builds, through the room's +0x24).
+	if (_grab >= 0 && !room.isHidden(_grab) && room.getMode(_grab) == 0) {
+		_grabbing = false;
+		Inventory &inventory = *_engine.getInventory();
+		if (!inventory.hasItem("OBJ_INV_TOKENS"))
+			inventory.addItem("OBJ_INV_TOKENS", "ANIM_TOOLBARTOKENS", "ANIM_CURSORTOKENS");
+		room.setHidden(_grab, true);
+		if (_piranha >= 0) {
+			room.setHidden(_piranha, false);
+			room.startAnim(_piranha, kEatFinish, 3, -1, 3);
+		}
+		RoomScript::Exit exit;
+		exit.destination = kCenter;
+		exit.scene = kExitLine;
+		exit.movie = -1;
+		_engine.getScript()->takeExit(exit);
+		_fed = false;
+		debugC(1, kDebugScript, "fountain: the tokens taken, back to the centre");
 	}
 }
 
 void FountainCloseupRoom::event(const Common::String &object, bool success) {
-	// 0x429B50: the burger used on the piranha sets it eating (it eats the burger
-	// and the tokens come free); a plain click cycles the three fountain lines.
-	RoomScript &script = *_engine.getScript();
+	// 0x429B50: the piranha or the tokens.
 	if (object != "OBJ_PIRANHA" && object != "OBJ_INV_TOKENS")
 		return;
 	if (success) {
+		// The burger: spent; the piranha starts eating, Piranha_Eats; no lunge;
+		// input held and the cursor hidden (game +0x09, 0x435E80).
 		_engine.getInventory()->removeItem("OBJ_INV_BURGER");
 		if (_piranha >= 0)
-			_engine.getRoom()->setPlayer(_piranha, 3, 3, -1);
+			_engine.getRoom()->startAnim(_piranha, kEatStart, 3, -1, 3);
 		_engine.getSound()->play(kEats);
+		_lunge = false;
 		_fed = true;
 		debugC(1, kDebugScript, "fountain: the piranha is fed");
 		return;
 	}
-	script.startScene(kClickLines[_clickCycle], true);
+	// A plain click (the open hand, nothing held): the next of the three
+	// lines, holding input, and the piranha lunges when its idle ends.
+	if (!_engine.getInventory()->isDefaultCursor())
+		return;
+	_lunge = true;
+	_engine.getScript()->startScene(kClickLines[_clickCycle], true);
 	_clickCycle = _clickCycle == 2 ? 0 : _clickCycle + 1;
 }
 
