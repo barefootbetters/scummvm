@@ -85,10 +85,13 @@ private:
 
 /**
  * ROOM_P44_Fountain_Closeup (class 0x429740, vtable 0x45F304): the close-up off
- * the centre, where a piranha guards the tokens. Fed the burger it lunges, eats,
- * and Shaggy grabs the tokens into the toolbar; the way back to the centre
- * (OBJ_P44_TO_P23) then opens and the exit list is built. A plain click on the
- * fountain cycles three lines. Music "1", opening Fountain.250D_.
+ * the centre, where a piranha guards the tokens. The piranha (a requires object
+ * wanting the burger) swims, its idle played once and again with its swim; a
+ * plain click on it or the tokens plays the next of three lines and makes it
+ * lunge once its idle ends. Fed the burger (input held) it starts eating; then
+ * it is hidden while Shaggy grabs the tokens, which go into the toolbar; it
+ * finishes eating and the gang goes back to the centre with Fountain.250F_.
+ * Music "1", opening Fountain.250D_.
  */
 class FountainCloseupRoom : public RoomClass {
 public:
@@ -100,6 +103,18 @@ public:
 	void event(const Common::String &object, bool success) override;                 // 0x429B50
 	void reset() override;                                                            // 0x4297A0
 	void claimPlacement(const Common::String &object, Room::Claim &claim) override;   // 0x429CC0
+	// Input held and the cursor hidden from the burger fed to the way back (+0xCA).
+	bool isBusy() const override { return _fed; }
+	bool hidesCursor() const override { return _fed; }
+
+	// The state a check reads.
+	int getPiranha() const { return _piranha; }
+	int getGrab() const { return _grab; }
+	int getTokens() const { return _tokens; }
+	bool isLungePending() const { return _lunge; }
+	bool isGrabbing() const { return _grabbing; }
+	bool isFed() const { return _fed; }
+	int getClickCycle() const { return _clickCycle; }
 
 	static const char *kOpening;        // Fountain.250D_ (also the first click line)
 	static const char *kClickLines[3];  // Fountain.250D_, .250D1_, .250D2_
@@ -112,14 +127,20 @@ public:
 	static const char *kPiranhaIdle;    // ANIM_PIRANHAIDLE
 	static const char *kPiranhaFull;    // ANIM_PIRANHAFULL (when the burger is held)
 	static const char *kEatStart;       // ANIM_PIRANHALUNGE_EAT_START
+	static const char *kEatFinish;      // ANIM_PIRANHALUNGE_EAT_FINISH
+	static const char *kLungeAttack;    // ANIM_PIRANHALUNGE_ATTACK
+	static const char *kCenter;         // ROOM_P23_Maze_Center, the way back
 
 private:
 	int findSprite(const Common::String &object) const;
 
-	bool _fed = false;    // +0xca: the burger was fed, the token grab is pending
-	bool _grabbed = false;// +0xc9: the tokens have been granted
-	int _clickCycle = 0;  // +0xc4: the fountain-click line cycle
-	int _piranha = -1;    // +0xb8
+	int _piranha = -1;    // +0xb8: the piranha, a requires object
+	int _tokens = -1;     // +0xbc: the tokens, until taken
+	int _grab = -1;       // +0xc0: Shaggy grabbing the tokens, hidden until then
+	int _clickCycle = 0;  // +0xc4: the click line cycle
+	bool _lunge = true;   // +0xc8: a lunge when the idle next ends (set by reset and by a click)
+	bool _grabbing = false; // +0xc9: Shaggy's grab under way; leaving then still gives the tokens
+	bool _fed = false;    // +0xca: the burger fed, input held until the way back
 };
 
 /**

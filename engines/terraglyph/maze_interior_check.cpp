@@ -152,10 +152,12 @@ void TerraglyphEngine::checkMazeInterior() {
 		const Room::Claim piranhaFull = claimOf(rc, "OBJ_PIRANHA");
 		_inventory->addItem("OBJ_INV_TOKENS", "ANIM_TOOLBARTOKENS", "ANIM_CURSORTOKENS");
 		const Room::Claim tokensHeld = claimOf(rc, "OBJ_INV_TOKENS");
-		debugC(3, kDebugScript, "maze interior check Fountain claims: PIRANHA idle %s d%d anim %s, full anim %s; TOKENS loose %s d%d cursor %s held %s; TO_P23 %s d%d; GRAB %s d%d hidden %d",
-		       buildName(piranhaIdle.build), piranhaIdle.depth, piranhaIdle.anim.c_str(), piranhaFull.anim.c_str(),
+		// The piranha's sequence is set at entry (WP-093): the Fountain piranha
+		// and after lines read it.
+		debugC(3, kDebugScript, "maze interior check Fountain claims: PIRANHA idle %s layer %d d%d, burger used %s layer %d d%d; TOKENS loose %s d%d cursor %s held %s; TO_P23 %s d%d; GRAB %s layer %d d%d hidden %d",
+		       buildName(piranhaIdle.build), piranhaIdle.layer, piranhaIdle.depth, buildName(piranhaFull.build), piranhaFull.layer, piranhaFull.depth,
 		       buildName(tokensLoose.build), tokensLoose.depth, tokensLoose.required.c_str(), buildName(tokensHeld.build),
-		       buildName(toP23.build), toP23.depth, buildName(grab.build), grab.depth, grab.hidden ? 1 : 0);
+		       buildName(toP23.build), toP23.depth, buildName(grab.build), grab.layer, grab.depth, grab.hidden ? 1 : 0);
 		delete rc;
 	}
 
@@ -186,6 +188,108 @@ void TerraglyphEngine::checkMazeInterior() {
 		       (int)WellInMazeRoom::kMovieBallFirst, (int)WellInMazeRoom::kMovieBallAgain, (int)WellInMazeRoom::kMovieWellRope,
 		       (int)WellInMazeRoom::kMovieReturnGallery, (int)WellInMazeRoom::kMovieReturnOther, WellInMazeRoom::kGallery);
 		delete rc;
+	}
+
+	// The fountain's piranha (WP-093), played through the engine's tick:
+	// 0x429CC0's requires object, 0x429800's idle, lunge, eat and grab,
+	// 0x429B50's click and burger.
+	{
+		Common::String next;
+		int movie;
+		auto tick1 = [&]() {
+			next.clear();
+			movie = -1;
+			return tickOnce(next, movie);
+		};
+		auto fountain = [&]() { return dynamic_cast<FountainCloseupRoom *>(getRoomClass(kFountain)); };
+		auto visit = [&]() {
+			newGameForCheck();
+			_sound->stop();
+			_mouseDown = false;
+			fountain()->reset();
+			showRoom(kFountain);
+			_script->skip();
+		};
+		Room &room = *_currentRoom;
+
+		// A fresh visit: the idle once, the lunge reset left pending, then the
+		// idle again.
+		visit();
+		FountainCloseupRoom *f = fountain();
+		int p = f->getPiranha();
+		Common::String out = Common::String::format("requires %d hit %d depth %d, %s mode %d, lunge pending %d, grab hidden %d mode %d",
+		                                            room.isRequiresObject(p) ? 1 : 0, room.getHitType(p), room.getDepth(p), room.getAnim(p).c_str(),
+		                                            room.getMode(p), f->isLungePending() ? 1 : 0, room.isHidden(f->getGrab()) ? 1 : 0,
+		                                            room.getMode(f->getGrab()));
+		int lunge = -1, again = -1;
+		for (int t = 1; t <= 400 && again < 0; t++) {
+			tick1();
+			if (lunge < 0 && room.getAnim(p) == FountainCloseupRoom::kLungeAttack) {
+				lunge = t;
+				out += Common::String::format("; lunges at tick %d", t);
+			} else if (lunge > 0 && room.getAnim(p) == FountainCloseupRoom::kPiranhaIdle) {
+				again = t;
+				out += Common::String::format("; idle again at tick %d, lunge pending %d", t, f->isLungePending() ? 1 : 0);
+			}
+		}
+		debugC(3, kDebugScript, "maze interior check Fountain piranha: %s", out.c_str());
+
+		// A plain click: the next line, holding input, and a lunge pending.
+		visit();
+		f = fountain();
+		tick1();
+		const bool pendingBefore = f->isLungePending();
+		f->event("OBJ_PIRANHA", false);
+		out = Common::String::format("lunge pending %d then %d, scene %s, cycle %d", pendingBefore ? 1 : 0, f->isLungePending() ? 1 : 0,
+		                             _script->getScene().c_str(), f->getClickCycle());
+		_script->skip();
+		f->event("OBJ_INV_TOKENS", false);
+		out += Common::String::format("; on the tokens: scene %s, cycle %d", _script->getScene().c_str(), f->getClickCycle());
+		debugC(3, kDebugScript, "maze interior check Fountain click: %s", out.c_str());
+
+		// The burger: the eat, Shaggy's grab, the tokens, the way back.
+		visit();
+		f = fountain();
+		p = f->getPiranha();
+		_inventory->addItem("OBJ_INV_BURGER");
+		f->event("OBJ_PIRANHA", true);
+		bool burgerSlotted = false;
+		for (uint i = 0; i < Inventory::kSlotCount; i++)
+			burgerSlotted = burgerSlotted || _inventory->getSlot(i) == "OBJ_INV_BURGER";
+		out = Common::String::format("burger in a slot %d, %s, busy %d cursor hidden %d", burgerSlotted ? 1 : 0, room.getAnim(p).c_str(),
+		                             f->isBusy() ? 1 : 0, f->hidesCursor() ? 1 : 0);
+		int grab = -1, tokens = -1, back = -1;
+		Common::String scenes, last;
+		for (int t = 1; t <= 2000 && back < 0; t++) {
+			tick1();
+			if (grab < 0 && !room.isHidden(f->getGrab())) {
+				grab = t;
+				out += Common::String::format("; grab at tick %d (piranha hidden %d, tokens hidden %d)", t, room.isHidden(p) ? 1 : 0,
+				                              f->getTokens() >= 0 && room.isHidden(f->getTokens()) ? 1 : 0);
+			}
+			if (tokens < 0 && grab > 0 && _inventory->hasItem("OBJ_INV_TOKENS")) {
+				tokens = t;
+				out += Common::String::format("; tokens at tick %d (%s, grab hidden %d, busy %d)", t, room.getAnim(p).c_str(),
+				                              room.isHidden(f->getGrab()) ? 1 : 0, f->isBusy() ? 1 : 0);
+			}
+			const Common::String s = _script->getScene();
+			if (!s.empty() && s != last) {
+				scenes += (scenes.empty() ? "" : " ") + s;
+				last = s;
+				_script->skip();
+			}
+			if (!next.empty())
+				back = t;
+		}
+		out += Common::String::format("; scenes %s; to %s", scenes.empty() ? "none" : scenes.c_str(), next.empty() ? "-" : next.c_str());
+		debugC(3, kDebugScript, "maze interior check Fountain burger: %s", out.c_str());
+
+		// Back after: the piranha full, looping; the tokens gone.
+		showRoom(kFountain);
+		_script->skip();
+		f = fountain();
+		debugC(3, kDebugScript, "maze interior check Fountain after: %s mode %d, tokens placed %d",
+		       room.getAnim(f->getPiranha()).c_str(), room.getMode(f->getPiranha()), f->getTokens() >= 0 ? 1 : 0);
 	}
 
 	// The well's Jester (WP-092): the member at +0xB8 is the Jester the
