@@ -188,6 +188,104 @@ void TerraglyphEngine::checkMazeInterior() {
 		delete rc;
 	}
 
+	// The well's Jester (WP-092): the member at +0xB8 is the Jester the
+	// gallery and the room of doors keep (0x4122D0), entered by 0x42C810
+	// (0x412B80) unless the visit bounces to the gallery, and ticked by
+	// 0x42C7F0 (0x4122E0).
+	{
+		Common::String next;
+		int movie;
+		auto tick1 = [&]() {
+			next.clear();
+			movie = -1;
+			return tickOnce(next, movie);
+		};
+		auto well = [&]() { return dynamic_cast<WellInMazeRoom *>(getRoomClass(kWell)); };
+		auto jester = [&]() { return _script->getCharacter("JESTER"); };
+		auto story = [&]() {
+			newGameForCheck();
+			_sound->stop();
+			_mouseDown = false;
+		};
+		// Run ticks, skipping each scene as it starts; the scenes in order.
+		auto scenes = [&](uint maxTicks) {
+			Common::String out, last;
+			for (uint t = 0; t < maxTicks; t++) {
+				tick1();
+				const Common::String s = _script->getScene();
+				if (!s.empty() && s != last) {
+					out += Common::String::format("%s%s", out.empty() ? "" : " ", s.c_str());
+					last = s;
+					_script->skip();
+				} else if (s.empty()) {
+					last.clear();
+				}
+				if (!next.empty())
+					break;
+			}
+			return out.empty() ? Common::String("none") : out;
+		};
+
+		// A visit with no ball found: he stands, and a click on him gives one
+		// of his five lines.
+		story();
+		showRoom(kWell);
+		_script->skip();
+		Common::String out = Common::String::format("present %d", jester() ? 1 : 0);
+		if (jester()) {
+			well()->click(jester()->getSprite());
+			tick1();
+			const Common::String line = _script->getScene();
+			const bool isLine = line == "Global.1010J_" || line == "Global.1010J1_" || line == "Global.Jester1_" || line == "Global.Jester2_" ||
+			                    line == "Global.Jester3_";
+			out += Common::String::format("; a click: one of his five lines %d", isLine ? 1 : 0);
+		}
+		debugC(3, kDebugScript, "maze interior check Well jester: %s", out.c_str());
+
+		// The yellow ball shown, the full bottle used: the well again, no
+		// bounce; he takes it, and with the red and blue already his, gives
+		// his clue, then thanks and the suspects and clues.
+		story();
+		setGameString("Whodunit", "MARIA");
+		setGameFlag("RedBallFound", true);
+		setGameFlag("RedBallTaken", true);
+		setGameFlag("BlueBallFound", true);
+		setGameFlag("BlueBallTaken", true);
+		_inventory->addItem("OBJ_INV_BOTTLE_FULL");
+		_inventory->removeItem("OBJ_INV_BOTTLE_FULL"); // used
+		showRoom(kWell);
+		_script->skip();
+		well()->event("OBJ_INV_BALL_YELLOW", true);
+		const bool pending = well()->isReturnPending();
+		showRoom(kWell);
+		const bool taken = getGameFlag("YellowBallTaken");
+		const Common::String anim = jester() ? _currentRoom->getAnim(jester()->getSprite()) : Common::String("-");
+		out = Common::String::format("bottle used: return pending %d, YellowBallTaken %d, Jester %s; ", pending ? 1 : 0, taken ? 1 : 0, anim.c_str());
+		const Common::String clue = scenes(4000);
+		out += Common::String::format("scenes %s; owner %d; then to %s", clue.c_str(), isClueOwner("JESTER") ? 1 : 0, next.c_str());
+		debugC(3, kDebugScript, "maze interior check Well jester clue: %s", out.c_str());
+
+		// The yellow ball shown, no full bottle: the visit bounces to the
+		// gallery (movie 57 from the well) before he enters; he takes nothing
+		// here, and the ticks before the bounce leave him alone.
+		story();
+		showRoom(kWell);
+		_script->skip();
+		well()->event("OBJ_INV_BALL_YELLOW", true);
+		showRoom(kWell);
+		bool bounced = false;
+		int bounceMovie = -1;
+		for (int t = 0; t < 10 && !bounced; t++) {
+			tick1();
+			if (next == WellInMazeRoom::kGallery) {
+				bounced = true;
+				bounceMovie = movie;
+			}
+		}
+		debugC(3, kDebugScript, "maze interior check Well jester bounce: to %s movie %d, YellowBallTaken %d, busy %d",
+		       bounced ? WellInMazeRoom::kGallery : "-", bounceMovie, getGameFlag("YellowBallTaken") ? 1 : 0, well()->isBusy() ? 1 : 0);
+	}
+
 	_checking = false;
 }
 

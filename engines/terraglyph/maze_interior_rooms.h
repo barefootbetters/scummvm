@@ -24,6 +24,7 @@
 
 #include "common/str.h"
 
+#include "terraglyph/doors_rooms.h" // JesterControl
 #include "terraglyph/room.h"
 #include "terraglyph/room_class.h"
 
@@ -139,6 +140,11 @@ public:
 	void event(const Common::String &object, bool success) override;                 // 0x42C8E0
 	void reset() override;                                                           // 0x42C7D0
 	void claimPlacement(const Common::String &object, Room::Claim &claim) override;  // 0x42CA20
+	bool click(int sprite) override { _jester.click(sprite); return false; }
+	bool isBusy() const override { return _jester.isHolding(); }
+
+	JesterControl &getJester() { return _jester; }
+	bool isReturnPending() const { return _returnPending; }
 
 	static const char *kClickLines[3];  // Well_in_Maze.290_, Well_In_Maze.330X1_, Well_In_Maze.330X2_
 	enum {
@@ -153,6 +159,8 @@ public:
 private:
 	int findSprite(const Common::String &object) const;
 
+	JesterControl _jester; // +0xB8: the Jester, as the gallery and the room of doors keep him
+	bool _jesterHere = false; // his entry ran this visit (not on a bounce to the gallery)
 	int _clickCycle = 0;   // +0xcc: the well-click line cycle
 	bool _returnPending = false; // +0xd0: a return to the gallery is queued
 };
