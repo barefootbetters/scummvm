@@ -327,7 +327,9 @@ void WellInMazeRoom::claimPlacement(const Common::String &object, Room::Claim &c
 void WellInMazeRoom::enter(const Common::String &from) {
 	// 0x42C810, after the base entry: a queued return bounces to the gallery
 	// (movie 54 from it, 57 from elsewhere), unless the full bottle has been used;
-	// otherwise the well is marked visited (game+0x262).
+	// otherwise the Jester's entry (0x412B80, the member at +0xB8: the balls
+	// found he takes, and his talk) and the well marked visited (game+0x262).
+	_jesterHere = false;
 	if (_returnPending) {
 		_returnPending = false;
 		if (!used(_engine, "OBJ_INV_BOTTLE_FULL")) {
@@ -337,12 +339,18 @@ void WellInMazeRoom::enter(const Common::String &from) {
 			return;
 		}
 	}
+	_jester.enter(_engine);
+	_jesterHere = true;
 	_engine.setGameFlag("WellVisited", true);
 	debugC(1, kDebugScript, "well: from %s, visited", from.c_str());
 }
 
 void WellInMazeRoom::tick() {
-	// 0x42C7F0, after the base tick.
+	// 0x42C7F0, after the base tick: the Jester's (0x4122E0). On a visit that
+	// bounces to the gallery his entry didn't run, and the room's characters
+	// were rebuilt since he last did, so he is left alone until the bounce.
+	if (_jesterHere)
+		_jester.tick(_engine);
 }
 
 void WellInMazeRoom::event(const Common::String &object, bool success) {
