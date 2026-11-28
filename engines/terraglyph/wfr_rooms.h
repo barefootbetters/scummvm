@@ -29,112 +29,98 @@
 namespace Terraglyph {
 
 /**
- * Phantom's Wizard's Rule Room (WP-083), ROOM_P30_WFR (class 0x41BEA0, vtable
- * 0x45EE7C, the game's largest at 1022 lines) — the fourth and last of the
- * audit's group-8 (Upstairs) rooms. Showdown has no such room.
+ * Phantom's Wizard's Rule Room, ROOM_P30_WFR (0x41BEA0, vtable 0x45EE7C): a
+ * rhythm game on the wizard's song (Wizards_Rule.Music). The song's play
+ * position (0x4358D0, Sound::getClipMillis) at 1.3795 beats a second is the
+ * clock; a beat counts in the first 0.49 of it. Each 16-beat phrase has eight
+ * entries in the table at 0x46C5B0 (0-5 a bottle, 6 a gap): on beats 0-7 the
+ * wizard dances and lights them while Scooby watches; on beats 8-15 the player
+ * clicks the same bottles on the same beats while Scooby dances. A beat missed
+ * breaks a glass and spends a life (Incorrect); a phrase played clean is a
+ * snack (Correct). Out of lives, or the song over, back to the wizard's
+ * bedroom, through movie 0xB while his clue is not yet the gang's (0x41BF30).
  *
- * It is a Simon-says potion game. The wizard sets a rule: a number (on a
- * two-digit counter) and a run of coloured ingredients he DANCEs in turn while
- * the gang WATCHes; the player repeats it by clicking the ingredients. A right
- * run plays Wizards_Rule.Correct and advances; a wrong one plays
- * Wizards_Rule.Incorrect (one of three) and Knights.Glass_Breaks and spends a
- * life (the lives are difficulty-scaled). Out of lives, or the run finished,
- * returns the gang to the wizard's bedroom (ROOM_P24_Wizards_Bedroom), where —
- * on the return from here — the wizard's clue is given and the accusation armed
- * (WP-081). The leave direction is gated on owning the wizard's clue.
- *
- * The original drives the spinner off a lip-sync scene's fractional playback
- * position (0x4358D0); the fork's scene player exposes no fractional position,
- * so the spinner here advances on its own tick counter over the same
- * position->ingredient table (0x46C5B0), the way Maria's game (WP-064) drives
- * its physics on a tick counter rather than the original's scene clock. The
- * contract — the classes, the clips, the claims, the music, the required
- * placements, the exit and the clue gate — is what the self-test checks; the
- * moment-to-moment feel of the reconstructed loop is for a human to confirm
- * live (as with WP-081's from-WFR arming path).
+ * Its slots: tick 0x41C3A0, enter 0x41C0C0, leave 0x41C350, claim 0x41CF50,
+ * the ways out 0x41BF30. Scooby and the wizard are the dancers (0x41BAC0,
+ * vtable 0x45EE54: update 0x41BC50, modes 0x41BC80).
  */
 class WizardsRuleRoom : public RoomClass {
 public:
-	/**
-	 * A WFR object. Scooby and the wizard are the animated sub-class (0x41BAC0,
-	 * vtable 0x45EE54) whose mode (+0x5C) plays an ANIM_WFR_<name><suffix>
-	 * (0x41BC80): 0 the idle, 1 TURN_DANCE, 2 TURN_WATCH, 3 DANCE<value>, 4
-	 * WATCH. The six coloured bottles share one OBJ_WFR_BOTTLES placement each,
-	 * told apart by the colour in their ANIM (the original's claim strips the
-	 * anim to compare RED/GREEN/BLUE/PINK/YELLOW/BROWN); they are plain lit
-	 * sprites, not dancers.
-	 */
-	struct Obj {
+	/** A dancer (0x41BAC0): ANIM_WFR_<name><suffix> by its mode (+0x5C). */
+	struct Dancer {
 		int sprite = -1;
-		Common::String name; // the stem used for the dancers: SCOOBY or WIZARD
-		Common::String anim; // a bottle's display ANIM (its colour), lit on cue
-		int mode = 0;        // +0x5C (the dancers)
-		int value = 0;       // +0x68: the step DANCE<value> plays
+		Common::String name; // +0x60: SCOOBY or WIZARD
+		int mode = 0;        // +0x5C: 0 idle, 1 TURN_DANCE, 2 TURN_WATCH, 3 DANCE<value>, 4 WATCH
+		int value = 0;       // +0x68: the dance DANCE<value> plays
 	};
 
 	explicit WizardsRuleRoom(TerraglyphEngine &engine) : RoomClass(engine) {}
 
 	void enter(const Common::String &from) override;                                // 0x41C0C0
+	void roomLeft() override;                                                        // 0x41C350
 	void tick() override;                                                            // 0x41C3A0
-	void reset() override;                                                           // 0x41C350
 	void claimPlacement(const Common::String &object, Room::Claim &claim) override;  // 0x41CF50
 	bool click(int sprite) override;
-	bool isBusy() const override { return _busy; }
+	void exitMovie(const Common::String &destination, int &movie) override;         // 0x41BF30
 
-	// 0x41BF30 (+0x24, the leave builder) wraps the base walk-off only to pick a
-	// transition-movie variant (movie 0xb) when the wizard's clue is not yet
-	// owned. The engine's leaving() hook exposes the scene, not that transition
-	// movie, and the destination (the bedroom) and every gameplay contract are
-	// the same either way, so the variant is left to a later pass rather than
-	// faked here; see the WP-083 Result.
+	enum { kBottles = 6, kGap = 6, kTableSize = 304 };
+	static const char *const kColourClip[kBottles]; // Wizards_Rule.Red .. Brown
+	static const char *const kColourStem[kBottles]; // RED .. BROWN
+	/** 0x46C5B0: the bottle (0-5) or a gap (6) for @p beat. */
+	static int bottleForBeat(uint32 beat);
 
-	// For the check.
-	int getColour(int i) const { return (i >= 0 && i < 6) ? _colour[i].sprite : -1; }
-	int getScooby() const { return _scooby.sprite; }
-	int getWizard() const { return _wizard.sprite; }
-	int getLives() const { return (int)_lives.size(); }
-	bool hasCounter() const { return _counter[0] >= 0 && _counter[1] >= 0; }
-	int getRound() const { return _round; }
-	/** 0x46C5B0: the spinner position's ingredient (0-5), or 6 for a gap. */
-	static int positionIngredient(int pos);
+	// The state a check reads.
+	int getBottle(int i) const { return i >= 0 && i < kBottles ? _bottle[i] : -1; }
+	const Dancer &getScooby() const { return _scooby; }
+	const Dancer &getWizard() const { return _wizard; }
+	int getSkullsWizard() const { return _skullsWizard; }
+	int getSkullsScooby() const { return _skullsScooby; }
+	int getTens() const { return _counter[0]; }
+	int getOnes() const { return _counter[1]; }
+	const Common::Array<int> &getLives() const { return _lives; }
+	int getWrong() const { return _wrong; }
+	bool isFailed() const { return _failed; }
+	bool isAllGood() const { return _allGood; }
+	uint32 getLastBeat() const { return _lastBeat; }
+	const Common::String &getSounds() const { return _sounds; }
+	void clearSounds() { _sounds.clear(); }
+	/** For a check: the song's position in milliseconds (-1 over), -2 for the real one. */
+	void setClockForCheck(int32 millis) { _clockForCheck = millis; }
+	/** For a check: every rand() the room draws returns @p value (-1: the engine's). */
+	void setRandomForCheck(int value) { _forcedRandom = value; }
 
 private:
-	enum Phase { kShow, kRepeat, kDone };
-
-	void setObjMode(Obj &obj, int mode);
-	void lightBottle(int colour);
-	void playSound(const Common::String &name);
-	void showCounter();
-	void startRound();
-	void loseLife();
+	void setMode(Dancer &d, int mode);          // 0x41BC80
+	void dance(Dancer &d, int value);           // 0x41BBD0
+	void turnWatch(Dancer &d);                  // 0x41BC10
+	void updateDancer(Dancer &d);               // 0x41BC50
+	void lightBottle(int bottle, bool lit);
+	void allBottles(bool lit);
+	void snack();
 	void leaveToBedroom();
-	int colourAt(int sprite) const;
+	int drawRandom();
+	void playSound(const Common::String &name, bool restart = false);
 
-	static const int kPositions = 48;
-	static const int kPositionTable[kPositions];
-	static const char *const kColourClip[6]; // Wizards_Rule.Red .. Brown
-
-	// The six ingredients in colour order: Red, Green, Blue, Pink, Yellow, Brown.
-	Obj _colour[6];
-	Obj _scooby;
-	Obj _wizard;
-	int _counter[2] = { -1, -1 };  // +0xE8/+0xEC: the two counter-number sprites
-	Common::Array<int> _lives;     // +0x124..: OBJ_WFR_LIVES, difficulty-scaled
-
-	// The Simon run. The wizard DANCEs _sequence in turn (kShow) over the
-	// position table's cadence, then the player repeats it by clicking (kRepeat).
-	Common::Array<int> _sequence;
-	Phase _phase = kShow;
-	int _showAt = 0;       // the sequence index being danced
-	int _inputAt = 0;      // the sequence index awaited from the player
-	int _pos = 0;          // the spinner's position (0..47)
-	int _stepTimer = 0;    // +0x4D: ticks the current position holds
-	int _round = 0;        // the run's length / the rule number on the counter
-	int _wrong = 0;        // +0x46: wrong runs so far
-	int _wrongMax = 5;     // 5 - difficulty: wrong runs that end the game
-	bool _busy = false;    // game +0x24: input held (the wizard dancing)
-	bool _click = false;
-	int _clicked = -1;
+	Dancer _scooby, _wizard;                    // +0x110, +0x114
+	int _bottle[kBottles] = { -1, -1, -1, -1, -1, -1 }; // +0xF8..+0x10C: red, green, blue, pink, yellow, brown
+	int _skullsWizard = -1, _skullsScooby = -1; // +0xF0, +0xF4: they mouth the song and the colours
+	int _counter[2] = { -1, -1 };               // +0xE8, +0xEC: the snacks, tens the smaller x
+	int _livesAnchor = -1;                      // +0x120: the placed life
+	Common::Array<int> _lives;                  // +0x120, then +0x124..: 5 less the difficulty
+	Common::String _colourClip;                 // +0xBC: the colour last called
+	int _dances[8] = {};                        // +0xC0..+0xDC: a phrase's dances, rand() % 6 + 1
+	bool _handled = true;                       // +0xE0: this beat done with
+	bool _allGood = true;                       // +0xE1: no beat missed since the player's half began
+	bool _off = true;                           // +0xE2: between beats
+	uint32 _lastBeat = 0xFFFFFFFF;              // +0xE4
+	int _wrong = 0;                             // +0x118: phrases missed
+	bool _failed = false;                       // +0x11C: this phrase missed
+	bool _canScore = true;                      // +0x11D: the phrase's snack not yet given
+	int _lightTimer = 0;                        // +0x134: ticks a lit bottle stays lit
+	int _clicked = -1;                          // the sprite clicked since the last tick
+	int32 _clockForCheck = -2;
+	int _forcedRandom = -1;
+	Common::String _sounds;
 };
 
 /** The class for this room, or nullptr. */
