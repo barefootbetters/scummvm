@@ -70,6 +70,7 @@
 #include "terraglyph/tunnel_rooms.h"
 #include "terraglyph/princess_rooms.h"
 #include "terraglyph/vault_rooms.h"
+#include "terraglyph/wfr_rooms.h"
 #include "terraglyph/wizards_bedroom_rooms.h"
 #include "terraglyph/wizards_rooms.h"
 
@@ -237,6 +238,8 @@ static RoomClass *buildRoomClass(TerraglyphEngine &engine, const Common::String 
 		return princess;
 	if (RoomClass *wizardsBedroom = createWizardsBedroomRoom(engine, room))
 		return wizardsBedroom;
+	if (RoomClass *wfr = createWizardsRuleRoom(engine, room))
+		return wfr;
 	// Showdown's chase (chase_rooms.cpp).
 	if (RoomClass *chase = createChaseRoom(engine, room))
 		return chase;
