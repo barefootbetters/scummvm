@@ -202,6 +202,32 @@ void TerraglyphEngine::checkDrawbridge() {
 		debugC(3, kDebugScript, "drawbridge check flag: %s", out.c_str());
 	}
 
+	// A click on flag 3 on colour 4: lowered (12), colour 1 raised (5),
+	// waving 1. The wrap round from 4 to 1; a flag left in no state stays
+	// down for good.
+	{
+		static const int kFlagsIn[4] = { 2, 3, 4, 4 };
+		enterDB(kFlagsIn, nullptr);
+		DrawbridgeRoom *c = db();
+		const int s = c->getFlag(2).sprite;
+		int last = c->getFlag(2).state;
+		Common::String seq;
+		uint t = 1;
+		for (; t <= 200; t++) {
+			if (t == 1)
+				c->click(s);
+			tick1();
+			if (c->getFlag(2).state != last) {
+				last = c->getFlag(2).state;
+				seq += Common::String::format(" %d at %u (%s mode %d)", last, t, _currentRoom->getAnim(s).c_str(), _currentRoom->getMode(s));
+			}
+			if (last <= 4 && !seq.empty())
+				break;
+		}
+		debugC(3, kDebugScript, "drawbridge check wrap: clicked at tick 1:%s; %s", seq.c_str(),
+		       last >= 1 && last <= 4 ? Common::String::format("waving %d", last).c_str() : Common::String::format("stuck in state %d after 200 ticks", last).c_str());
+	}
+
 	// Velma idle, flag 4 moved off its banner: her line.
 	{
 		static const int kFlagsIn[4] = { 2, 3, 4, 4 };
